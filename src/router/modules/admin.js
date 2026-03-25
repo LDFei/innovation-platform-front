@@ -12,5 +12,15 @@ export default [
       requiresAuth: true,
       roles: ['COLLEGE_ADMIN', 'SCHOOL_ADMIN']
     }
+  },
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/views/admin/Users.vue'),
+    meta: {
+      title: '用户管理',
+      requiresAuth: true,
+      roles: ['SCHOOL_ADMIN']
+    }
   }
 ]

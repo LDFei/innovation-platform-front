@@ -53,6 +53,10 @@
                 <span v-else>登录中...</span>
               </el-button>
             </el-form-item>
+            <div class="form-footer">
+              <span>还没有账号？</span>
+              <el-link type="primary" @click="goToRegister">立即注册</el-link>
+            </div>
           </el-form>
         </div>
       </div>
@@ -105,6 +109,10 @@ const handleLogin = async () => {
       }
     }
   })
+}
+
+const goToRegister = () => {
+  router.push('/register')
 }
 </script>
 
@@ -297,6 +305,18 @@ const handleLogin = async () => {
 
 .login-btn:active {
   transform: translateY(0);
+}
+
+.form-footer {
+  text-align: center;
+  margin-top: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+.form-footer .el-link {
+  font-weight: 500;
+  margin-left: 4px;
 }
 
 @media (max-width: 540px) {

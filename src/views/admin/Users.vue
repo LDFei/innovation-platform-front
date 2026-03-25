@@ -1,0 +1,485 @@
+<template>
+  <div class="users-management">
+    <PageHeader title="用户管理" description="管理系统用户，包括创建、编辑、禁用等操作">
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="handleCreate">
+          创建用户
+        </el-button>
+      </template>
+    </PageHeader>
+
+    <!-- 搜索表单 -->
+    <SearchForm :model="searchForm" @search="handleSearch" @reset="handleReset">
+      <el-form-item label="用户名">
+        <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable />
+      </el-form-item>
+      <el-form-item label="真实姓名">
+        <el-input v-model="searchForm.realName" placeholder="请输入真实姓名" clearable />
+      </el-form-item>
+      <el-form-item label="角色">
+        <el-select v-model="searchForm.role" placeholder="请选择角色" clearable style="width: 160px">
+          <el-option label="学生" value="STUDENT" />
+          <el-option label="教师" value="TEACHER" />
+          <el-option label="学院管理员" value="COLLEGE_ADMIN" />
+          <el-option label="学校管理员" value="SCHOOL_ADMIN" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="学院">
+        <el-select v-model="searchForm.collegeId" placeholder="请选择学院" clearable style="width: 180px">
+          <el-option
+            v-for="college in collegeList"
+            :key="college.id"
+            :label="college.name"
+            :value="college.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 140px">
+          <el-option label="启用" :value="1" />
+          <el-option label="禁用" :value="0" />
+        </el-select>
+      </el-form-item>
+    </SearchForm>
+
+    <!-- 数据表格 -->
+    <DataTable
+      :data="userList"
+      :loading="loading"
+      :total="total"
+      v-model:page="searchForm.pageNum"
+      v-model:pageSize="searchForm.pageSize"
+      @page-change="fetchUserList"
+    >
+      <el-table-column prop="username" label="用户名" min-width="120" />
+      <el-table-column prop="realName" label="真实姓名" min-width="120" />
+      <el-table-column prop="role" label="角色" width="120">
+        <template #default="{ row }">
+          <el-tag :type="getRoleType(row.role)">{{ getRoleName(row.role) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="collegeName" label="所属学院" min-width="150" show-overflow-tooltip />
+      <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="phone" label="手机号" width="130" />
+      <el-table-column prop="status" label="状态" width="90">
+        <template #default="{ row }">
+          <el-switch
+            v-model="row.status"
+            :active-value="1"
+            :inactive-value="0"
+            @change="(val) => handleStatusChange(row, val)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" width="170" />
+      <el-table-column label="操作" width="220" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" :icon="Edit" @click="handleEdit(row)">编辑</el-button>
+          <el-button link type="warning" :icon="Key" @click="handleResetPassword(row)">重置密码</el-button>
+          <el-button link type="danger" :icon="Delete" @click="handleDelete(row)">删除</el-button>
+        </template>
+      </el-table-column>
+    </DataTable>
+
+    <!-- 创建/编辑用户对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="isEdit ? '编辑用户' : '创建用户'"
+      width="600px"
+      destroy-on-close
+    >
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="formRules"
+        label-width="100px"
+      >
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="用户名" prop="username">
+              <el-input v-model="form.username" placeholder="请输入用户名" :disabled="isEdit" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="isEdit ? '新密码' : '密码'" prop="password">
+              <el-input
+                v-model="form.password"
+                type="password"
+                :placeholder="isEdit ? '不修改请留空' : '请输入密码'"
+                show-password
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="真实姓名" prop="realName">
+              <el-input v-model="form.realName" placeholder="请输入真实姓名" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="角色" prop="role">
+              <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
+                <el-option label="学生" value="STUDENT" />
+                <el-option label="教师" value="TEACHER" />
+                <el-option label="学院管理员" value="COLLEGE_ADMIN" />
+                <el-option label="学校管理员" value="SCHOOL_ADMIN" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="邮箱" prop="email">
+              <el-input v-model="form.email" placeholder="请输入邮箱" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="form.phone" placeholder="请输入手机号" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="所属学院" prop="collegeId">
+          <el-select v-model="form.collegeId" placeholder="请选择所属学院" clearable style="width: 100%">
+            <el-option
+              v-for="college in collegeList"
+              :key="college.id"
+              :label="college.name"
+              :value="college.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :label="1">启用</el-radio>
+            <el-radio :label="0">禁用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 重置密码对话框 -->
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="重置密码"
+      width="400px"
+    >
+      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input
+            v-model="passwordForm.newPassword"
+            type="password"
+            placeholder="请输入新密码"
+            show-password
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="passwordLoading" @click="handlePasswordSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Edit, Delete, Key } from '@element-plus/icons-vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import SearchForm from '@/components/common/SearchForm.vue'
+import DataTable from '@/components/common/DataTable.vue'
+import {
+  getUserList,
+  createUser,
+  updateUser,
+  updateUserStatus,
+  resetPassword,
+  deleteUser
+} from '@/api/modules/userAdmin'
+import { getAllColleges } from '@/api/modules/college'
+
+// 搜索表单
+const searchForm = reactive({
+  username: '',
+  realName: '',
+  role: '',
+  collegeId: '',
+  status: '',
+  pageNum: 1,
+  pageSize: 10
+})
+
+// 表格数据
+const userList = ref([])
+const total = ref(0)
+const loading = ref(false)
+const collegeList = ref([])
+
+// 对话框
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const submitLoading = ref(false)
+const formRef = ref(null)
+const form = reactive({
+  id: '',
+  username: '',
+  password: '',
+  realName: '',
+  email: '',
+  phone: '',
+  role: '',
+  collegeId: '',
+  status: 1
+})
+
+const formRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
+  ],
+  password: [
+    { 
+      validator: (rule, value, callback) => {
+        if (!isEdit.value && !value) {
+          callback(new Error('请输入密码'))
+        } else if (value && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,}$/.test(value)) {
+          callback(new Error('密码至少6位，包含字母和数字'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
+  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
+  ],
+  collegeId: [{ required: true, message: '请选择所属学院', trigger: 'change' }]
+}
+
+// 重置密码对话框
+const passwordDialogVisible = ref(false)
+const passwordLoading = ref(false)
+const passwordFormRef = ref(null)
+const passwordForm = reactive({
+  userId: '',
+  newPassword: ''
+})
+const passwordRules = {
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { 
+      pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,}$/, 
+      message: '密码至少6位，包含字母和数字', 
+      trigger: 'blur' 
+    }
+  ]
+}
+
+// 获取角色名称
+const getRoleName = (role) => {
+  const roleMap = {
+    'STUDENT': '学生',
+    'TEACHER': '教师',
+    'COLLEGE_ADMIN': '学院管理员',
+    'SCHOOL_ADMIN': '学校管理员'
+  }
+  return roleMap[role] || role
+}
+
+// 获取角色标签类型
+const getRoleType = (role) => {
+  const typeMap = {
+    'STUDENT': 'info',
+    'TEACHER': 'success',
+    'COLLEGE_ADMIN': 'warning',
+    'SCHOOL_ADMIN': 'danger'
+  }
+  return typeMap[role] || 'info'
+}
+
+// 获取学院列表
+const fetchColleges = async () => {
+  try {
+    const data = await getAllColleges()
+    collegeList.value = data || []
+  } catch (error) {
+    ElMessage.error('获取学院列表失败')
+  }
+}
+
+// 获取用户列表
+const fetchUserList = async () => {
+  loading.value = true
+  try {
+    const params = {}
+    Object.keys(searchForm).forEach(key => {
+      if (searchForm[key] !== '' && searchForm[key] !== null) {
+        params[key] = searchForm[key]
+      }
+    })
+    const res = await getUserList(params)
+    userList.value = res.list || []
+    total.value = res.total || 0
+  } catch (error) {
+    ElMessage.error('获取用户列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 搜索
+const handleSearch = () => {
+  searchForm.pageNum = 1
+  fetchUserList()
+}
+
+// 重置搜索
+const handleReset = () => {
+  Object.keys(searchForm).forEach(key => {
+    if (key === 'pageNum') {
+      searchForm[key] = 1
+    } else if (key === 'pageSize') {
+      searchForm[key] = 10
+    } else {
+      searchForm[key] = ''
+    }
+  })
+  fetchUserList()
+}
+
+// 创建用户
+const handleCreate = () => {
+  isEdit.value = false
+  Object.keys(form).forEach(key => {
+    form[key] = key === 'status' ? 1 : ''
+  })
+  dialogVisible.value = true
+}
+
+// 编辑用户
+const handleEdit = (row) => {
+  isEdit.value = true
+  Object.keys(form).forEach(key => {
+    form[key] = row[key] || ''
+  })
+  form.password = '' // 清空密码
+  dialogVisible.value = true
+}
+
+// 提交表单
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    submitLoading.value = true
+    try {
+      if (isEdit.value) {
+        const { id, password, ...updateData } = form
+        if (password) {
+          await updateUser(id, { ...updateData, password })
+        } else {
+          await updateUser(id, updateData)
+        }
+        ElMessage.success('更新用户成功')
+      } else {
+        await createUser(form)
+        ElMessage.success('创建用户成功')
+      }
+      dialogVisible.value = false
+      fetchUserList()
+    } catch (error) {
+      ElMessage.error(error.message || (isEdit.value ? '更新失败' : '创建失败'))
+    } finally {
+      submitLoading.value = false
+    }
+  })
+}
+
+// 状态变更
+const handleStatusChange = async (row, status) => {
+  try {
+    await updateUserStatus(row.id, status)
+    ElMessage.success(status === 1 ? '用户已启用' : '用户已禁用')
+  } catch (error) {
+    row.status = status === 1 ? 0 : 1 // 恢复原状态
+    ElMessage.error('状态更新失败')
+  }
+}
+
+// 重置密码
+const handleResetPassword = (row) => {
+  passwordForm.userId = row.id
+  passwordForm.newPassword = ''
+  passwordDialogVisible.value = true
+}
+
+// 提交重置密码
+const handlePasswordSubmit = async () => {
+  if (!passwordFormRef.value) return
+  
+  await passwordFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    passwordLoading.value = true
+    try {
+      await resetPassword(passwordForm.userId, passwordForm.newPassword)
+      ElMessage.success('密码重置成功')
+      passwordDialogVisible.value = false
+    } catch (error) {
+      ElMessage.error(error.message || '密码重置失败')
+    } finally {
+      passwordLoading.value = false
+    }
+  })
+}
+
+// 删除用户
+const handleDelete = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除用户 "${row.username}" 吗？此操作不可恢复！`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await deleteUser(row.id)
+    ElMessage.success('删除成功')
+    fetchUserList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败')
+    }
+  }
+}
+
+onMounted(() => {
+  fetchColleges()
+  fetchUserList()
+})
+</script>
+
+<style scoped>
+.users-management {
+  padding: 24px;
+}
+</style>

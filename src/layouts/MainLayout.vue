@@ -73,6 +73,11 @@
           <el-icon><Edit /></el-icon>
           <template #title>审核中心</template>
         </el-menu-item>
+        
+        <el-menu-item v-if="isSchoolAdmin" index="/admin/users">
+          <el-icon><User /></el-icon>
+          <template #title>用户管理</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     
@@ -149,6 +154,10 @@ const isAdmin = computed(() => {
   return role === 'COLLEGE_ADMIN' || role === 'SCHOOL_ADMIN'
 })
 
+const isSchoolAdmin = computed(() => {
+  return userStore.userRole === 'SCHOOL_ADMIN'
+})
+
 const currentPageTitle = computed(() => {
   const titleMap = {
     '/dashboard': '首页',
@@ -160,6 +169,7 @@ const currentPageTitle = computed(() => {
     '/news': '新闻管理',
     '/persons': '人员库',
     '/admin/review': '审核中心',
+    '/admin/users': '用户管理',
     '/change-password': '修改密码'
   }
   return titleMap[route.path] || '创新创业服务系统'
