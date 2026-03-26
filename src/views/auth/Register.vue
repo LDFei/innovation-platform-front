@@ -59,17 +59,20 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="角色" prop="role">
+              <el-form-item label="所属学院" prop="collegeId">
                 <el-select
-                  v-model="registerForm.role"
-                  placeholder="请选择角色"
+                  v-model="registerForm.collegeId"
+                  placeholder="请选择所属学院"
                   size="large"
                   style="width: 100%"
+                  clearable
                 >
-                  <el-option label="学生" value="STUDENT" />
-                  <el-option label="教师" value="TEACHER" />
-                  <el-option label="学院管理员" value="COLLEGE_ADMIN" />
-                  <el-option label="学校管理员" value="SCHOOL_ADMIN" />
+                  <el-option
+                    v-for="college in collegeList"
+                    :key="college.id"
+                    :label="college.name"
+                    :value="college.id"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -98,21 +101,14 @@
             </el-col>
           </el-row>
 
-          <el-form-item label="所属学院" prop="collegeId">
-            <el-select
-              v-model="registerForm.collegeId"
-              placeholder="请选择所属学院"
-              size="large"
-              style="width: 100%"
-              clearable
-            >
-              <el-option
-                v-for="college in collegeList"
-                :key="college.id"
-                :label="college.name"
-                :value="college.id"
-              />
-            </el-select>
+          <el-form-item>
+            <el-alert
+              title="注册须知"
+              description="本平台仅限学生自主注册，教师及管理员账号请联系学院管理员或学校管理员创建。"
+              type="info"
+              :closable="false"
+              show-icon
+            />
           </el-form-item>
 
           <el-form-item>
@@ -159,7 +155,7 @@ const registerForm = reactive({
   realName: '',
   email: '',
   phone: '',
-  role: '',
+  role: 'STUDENT',
   collegeId: null
 })
 
@@ -186,9 +182,6 @@ const registerRules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
-  ],
-  role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
   ],
   collegeId: [
     { required: true, message: '请选择所属学院', trigger: 'change' }

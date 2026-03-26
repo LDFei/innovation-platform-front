@@ -61,3 +61,17 @@ export function resetPassword(id, newPassword) {
 export function deleteUser(id) {
   return handleResponse(del(`/users/${id}`))
 }
+
+/**
+ * 从 Excel 导入用户
+ * @param {File} file - Excel 文件
+ */
+export function importUsers(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return handleResponse(post('/users/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  }))
+}

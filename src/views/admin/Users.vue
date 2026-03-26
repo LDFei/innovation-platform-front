@@ -1,7 +1,10 @@
 <template>
   <div class="users-management">
-    <PageHeader title="用户管理" description="管理系统用户，包括创建、编辑、禁用等操作">
+    <PageHeader title="用户管理" description="管理系统用户，包括创建、编辑、禁用、导入等操作">
       <template #actions>
+        <el-button type="success" :icon="Upload" @click="handleImport">
+          导入用户
+        </el-button>
         <el-button type="primary" :icon="Plus" @click="handleCreate">
           创建用户
         </el-button>
@@ -184,13 +187,66 @@
         <el-button type="primary" :loading="passwordLoading" @click="handlePasswordSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 导入用户对话框 -->
+    <el-dialog
+      v-model="importDialogVisible"
+      title="导入用户"
+      width="500px"
+    >
+      <el-upload
+        ref="uploadRef"
+        class="upload-demo"
+        drag
+        action="#"
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :on-remove="handleFileRemove"
+        :file-list="fileList"
+        accept=".xlsx,.xls"
+        :limit="1"
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          拖拽文件到此处或 <em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            请上传 .xlsx 或 .xls 格式的 Excel 文件
+          </div>
+        </template>
+      </el-upload>
+      
+      <el-divider />
+      
+      <div class="template-info">
+        <h4>Excel 模板说明</h4>
+        <p>请按照以下列顺序填写数据：</p>
+        <el-table :data="templateColumns" size="small" border style="width: 100%">
+          <el-table-column prop="column" label="列名" width="100" />
+          <el-table-column prop="required" label="必填" width="60">
+            <template #default="{ row }">
+              <el-tag v-if="row.required" type="danger" size="small">是</el-tag>
+              <el-tag v-else type="info" size="small">否</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="说明" />
+        </el-table>
+        <p class="note">注：角色可选值：STUDENT（学生）、TEACHER（教师）、COLLEGE_ADMIN（学院管理员）、SCHOOL_ADMIN（学校管理员）</p>
+      </div>
+      
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importLoading" @click="handleImportSubmit">确定导入</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Key } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Key, Upload, UploadFilled } from '@element-plus/icons-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SearchForm from '@/components/common/SearchForm.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -200,7 +256,8 @@ import {
   updateUser,
   updateUserStatus,
   resetPassword,
-  deleteUser
+  deleteUser,
+  importUsers
 } from '@/api/modules/userAdmin'
 import { getAllColleges } from '@/api/modules/college'
 
@@ -476,10 +533,89 @@ onMounted(() => {
   fetchColleges()
   fetchUserList()
 })
+
+// 导入对话框
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const uploadRef = ref(null)
+const fileList = ref([])
+const currentFile = ref(null)
+
+const templateColumns = [
+  { column: '用户名', required: true, description: '唯一标识，不可重复' },
+  { column: '密码', required: true, description: '初始密码，建议后续修改' },
+  { column: '真实姓名', required: true, description: '用户真实姓名' },
+  { column: '邮箱', required: false, description: '联系邮箱' },
+  { column: '手机号', required: false, description: '联系手机' },
+  { column: '角色', required: true, description: 'STUDENT/TEACHER/COLLEGE_ADMIN/SCHOOL_ADMIN' },
+  { column: '学院ID', required: false, description: '所属学院ID（与学院名称二选一）' },
+  { column: '学院名称', required: false, description: '所属学院名称（与学院ID二选一）' },
+  { column: '状态', required: false, description: '1-启用，0-禁用，默认启用' }
+]
+
+// 打开导入对话框
+const handleImport = () => {
+  fileList.value = []
+  currentFile.value = null
+  importDialogVisible.value = true
+}
+
+// 文件变化
+const handleFileChange = (file) => {
+  currentFile.value = file.raw
+}
+
+// 文件移除
+const handleFileRemove = () => {
+  currentFile.value = null
+}
+
+// 提交导入
+const handleImportSubmit = async () => {
+  if (!currentFile.value) {
+    ElMessage.warning('请选择要导入的 Excel 文件')
+    return
+  }
+  
+  importLoading.value = true
+  try {
+    const res = await importUsers(currentFile.value)
+    ElMessage.success(res.message || '导入成功')
+    importDialogVisible.value = false
+    fetchUserList()
+  } catch (error) {
+    ElMessage.error(error.message || '导入失败')
+  } finally {
+    importLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
 .users-management {
   padding: 24px;
+}
+
+.template-info {
+  margin-top: 16px;
+}
+
+.template-info h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.template-info p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.template-info .note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #999;
+  line-height: 1.5;
 }
 </style>
